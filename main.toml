@@ -1,0 +1,23 @@
+[groups.main]
+size = 16
+mask = 0xF000
+
+[groups.main.subgroups]
+sys = 0x0000
+alu = 0x8000
+skp = 0xE000
+iregs = 0xF000
+
+[groups.main.instructions]
+jp_addr = 0x1000
+call_addr = 0x2000
+se_byte = 0x3000
+sne_byte = 0x4000
+se_reg = 0x5000
+ld_reg_byte = 0x6000
+add_byte = 0x7000
+sne_reg = 0x9000
+ld_i_addr = 0xA000
+jp_v0 = 0xB000
+rnd = 0xC000
+dwr = 0xD000
