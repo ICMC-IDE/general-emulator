@@ -26,8 +26,37 @@ where
 }
 
 #[derive(serde_derive::Deserialize, Debug)]
+enum Register {
+    R8(u8),
+    R16(u16),
+    R32(u32),
+    R64(u64),
+}
+
+impl Register {
+    fn read(&self) -> u64 {
+        match self {
+            Register::R8(v) => *v as u64,
+            Register::R16(v) => *v as u64,
+            Register::R32(v) => *v as u64,
+            Register::R64(v) => *v,
+        }
+    }
+
+    fn write(&mut self, value: u64) {
+        match self {
+            Register::R8(v) => *v = value as u8,
+            Register::R16(v) => *v = value as u16,
+            Register::R32(v) => *v = value as u32,
+            Register::R64(v) => *v = value,
+        }
+    }
+}
+
+#[derive(serde_derive::Deserialize, Debug)]
 struct Arch {
     pub groups: HashMap<String, Group>,
+    pub registers: HashMap<String, Register>,
 }
 
 struct Emulator<'mem> {
@@ -77,6 +106,7 @@ fn main() -> std::io::Result<()> {
 
     let arch = toml::from_str::<Arch>(&content).unwrap();
 
+    println!("Arch: {:?}", arch);
     let instructions_map = HashMap::new();
 
     let mut mem = [0xA0u8, 0x0, 0x0, 0x0];

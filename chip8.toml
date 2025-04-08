@@ -1,3 +1,6 @@
+[registers]
+r0 = { R32 = 0x0 }
+
 [groups.main]
 size = 16
 mask = 0xF000
