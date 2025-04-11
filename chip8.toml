@@ -1,9 +1,16 @@
 [registers]
-r0 = { R32 = 0x0 }
+v0 = { R16 = 0x0 }
 
 [groups.main]
 size = 16
 mask = 0xF000
+
+[groups.main.arguments]
+addr = { size = 12, offset = 0 }
+nibble = { size = 4, offset = 0 }
+x = { size = 4, offset = 8 }
+y = { size = 4, offset = 4 }
+byte = { size = 8, offset = 0 }
 
 [groups.main.subgroups]
 sys = 0x0000
@@ -24,3 +31,50 @@ ld_i_addr = 0xA000
 jp_v0 = 0xB000
 rnd = 0xC000
 dwr = 0xD000
+
+[groups.sys]
+size = 16
+mask = 0xFFFF
+
+[groups.sys.instructions]
+sys = 0x0000
+cls = 0x00E0
+ret = 0x00EE
+
+[groups.alu]
+size = 16
+mask = 0x000F
+
+[groups.alu.instructions]
+ld_reg_reg = 0x0000
+or = 0x0001
+and = 0x0002
+xor = 0x0003
+add_reg = 0x0004
+sub = 0x0005
+shr = 0x0006
+subn = 0x0007
+shl = 0x000E
+
+[groups.skp]
+size = 16
+mask = 0x00FF
+
+[groups.skp.instructions]
+skp = 0x009E
+skpn = 0x00A1
+
+[groups.iregs]
+size = 16
+mask = 0x00FF
+
+[groups.iregs.instructions]
+ld_reg_dt = 0x0007
+ld_reg_k = 0x000A
+ld_dt_reg = 0x0015
+ld_st_reg = 0x0018
+add_i = 0x001E
+ld_i_spt = 0x0029
+ld_im_bcd = 0x0033
+ld_im_regs = 0x0055
+ld_regs_im = 0x0065

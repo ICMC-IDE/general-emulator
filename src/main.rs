@@ -4,13 +4,20 @@ use std::fs::File;
 use std::io::prelude::*;
 
 #[derive(serde_derive::Deserialize, Debug)]
+struct InstructionArgument {
+    size: u8,
+    offset: u8,
+}
+
+#[derive(serde_derive::Deserialize, Debug)]
 struct Group {
-    pub size: u8,
-    pub mask: u64,
+    size: u8,
+    mask: u64,
+    arguments: HashMap<String, InstructionArgument>,
     #[serde(deserialize_with = "deserialize_invert_hashmap")]
-    pub subgroups: HashMap<u64, String>,
+    subgroups: HashMap<u64, String>,
     #[serde(deserialize_with = "deserialize_invert_hashmap")]
-    pub instructions: HashMap<u64, String>,
+    instructions: HashMap<u64, String>,
 }
 
 fn deserialize_invert_hashmap<'de, D>(deserializer: D) -> Result<HashMap<u64, String>, D::Error>
@@ -53,54 +60,79 @@ impl Register {
     }
 }
 
+struct ParsedInstruction {
+    name: String,
+    arguments: HashMap<String, u64>,
+}
+
 #[derive(serde_derive::Deserialize, Debug)]
 struct Arch {
-    pub groups: HashMap<String, Group>,
-    pub registers: HashMap<String, Register>,
+    groups: HashMap<String, Group>,
+    registers: HashMap<String, Register>,
 }
 
-struct Emulator<'mem> {
+type InstructionFn = fn(&mut HashMap<String, Register>, HashMap<String, u64>) -> ();
+
+struct Emulator {
     arch: Arch,
-    instructions: HashMap<String, &'mem dyn Fn() -> ()>,
-    memory: &'mem mut [u8],
+    instructions: HashMap<String, InstructionFn>,
+    memory: Box<[u8]>,
+    pc: u64,
 }
 
-impl<'mem> Emulator<'mem> {
-    fn new(
-        arch: Arch,
-        instructions: HashMap<String, &'mem dyn Fn()>,
-        memory: &'mem mut [u8],
-    ) -> Self {
+impl Emulator {
+    fn new(arch: Arch, instructions: HashMap<String, InstructionFn>, memory: Box<[u8]>) -> Self {
         Self {
             arch,
             instructions,
             memory,
+            pc: 0,
         }
     }
-    fn parse_group(&self, group: &str) -> &String {
+    fn parse_group(&mut self, group: &str) -> ParsedInstruction {
         let group = self.arch.groups.get(group).unwrap();
+        let group_size = group.size / 8;
+
         let mut buffer = [0u8; 8];
-        self.memory
-            .take((group.size / 8) as u64)
-            .read(&mut buffer[(8 - (group.size / 8)) as usize..])
+        self.memory[self.pc as usize..]
+            .take(group_size as u64)
+            .read(&mut buffer[(8 - group_size) as usize..])
             .unwrap();
 
         let instruction = u64::from_be_bytes(buffer) & group.mask;
 
-        println!("keys: {:?}", group.instructions.keys());
-        group
-            .instructions
-            .get(&instruction)
-            .unwrap_or_else(|| self.parse_group(group.subgroups.get(&instruction).unwrap()))
+        match group.instructions.get(&instruction) {
+            Some(name) => {
+                self.pc += group_size as u64;
+
+                let mut parsed_instruction = ParsedInstruction {
+                    name: name.clone(),
+                    arguments: HashMap::new(),
+                };
+                for (arg_name, arg) in &group.arguments {
+                    let value = (instruction >> arg.offset) & ((1 << arg.size) - 1);
+                    parsed_instruction.arguments.insert(arg_name.clone(), value);
+                }
+                parsed_instruction
+            }
+            None => {
+                let subgroup_name = group.subgroups.get(&instruction).unwrap().clone();
+                self.parse_group(&subgroup_name)
+            }
+        }
     }
-    fn emulate(&self) {
+
+    fn emulate(&mut self) {
         let instruction = self.parse_group("main");
-        self.instructions.get(instruction).unwrap()();
+        self.instructions.get(&instruction.name).unwrap()(
+            &mut self.arch.registers,
+            instruction.arguments,
+        );
     }
 }
 
 fn main() -> std::io::Result<()> {
-    let mut file = File::open("main.toml")?;
+    let mut file = File::open("chip8.toml")?;
     let mut content = String::new();
     file.read_to_string(&mut content).unwrap();
 
@@ -109,8 +141,9 @@ fn main() -> std::io::Result<()> {
     println!("Arch: {:?}", arch);
     let instructions_map = HashMap::new();
 
-    let mut mem = [0xA0u8, 0x0, 0x0, 0x0];
-    let emulator = Emulator::new(arch, instructions_map, &mut mem);
+    let mem = [0xA0u8, 0x0, 0x0, 0x0];
+    let mut emulator = Emulator::new(arch, instructions_map, mem.into());
+
     emulator.emulate();
 
     Ok(())
